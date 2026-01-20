@@ -61,6 +61,9 @@ class GlobalConfig(BaseSettings):
     )
     debug: bool = Field(default=False, description="Enable debug mode")
 
+    # Browser Configuration
+    headless: bool = Field(default=True, description="Run browser in headless mode")
+
     # Logging Configuration
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO", description="Minimum log level"

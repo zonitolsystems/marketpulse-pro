@@ -211,6 +211,7 @@ RETRY_MAX_DELAY_SEC=60.0
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BASE_URL` | `https://books.toscrape.com/` | Target website URL |
+| `HEADLESS` | `true` | Run browser in headless mode (false = visible) |
 | `MAX_CONCURRENT_REQUESTS` | `5` | Async semaphore limit |
 | `REQUEST_TIMEOUT_MS` | `30000` | Network request timeout |
 | `WATCHDOG_FAILURE_THRESHOLD` | `0.30` | Max failure ratio (30%) |

@@ -146,14 +146,17 @@ class BrowserManager:
         Raises:
             BrowserInitializationError: If any initialization step fails.
         """
-        log.info("Initializing browser with stealth settings")
+        log.info(
+            "Initializing browser with stealth settings",
+            headless=self.config.headless,
+        )
 
         try:
             self._playwright = await async_playwright().start()
 
             # Launch browser with anti-detection flags
             self._browser = await self._playwright.chromium.launch(
-                headless=True,
+                headless=self.config.headless,
                 args=[
                     "--disable-blink-features=AutomationControlled",
                     "--disable-dev-shm-usage",
