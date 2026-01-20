@@ -121,10 +121,19 @@ class ProductSchema(BaseModel):
 
         # Handle European format (comma as decimal separator)
         if "," in cleaned and "." not in cleaned:
+            # Simple European format: 123,45 → 123.45
             cleaned = cleaned.replace(",", ".")
         elif "," in cleaned and "." in cleaned:
-            # Assume comma is thousands separator (e.g., "1,234.56")
-            cleaned = cleaned.replace(",", "")
+            # Determine format by position: period before comma = European (1.234,56)
+            # Comma before period = US/UK format (1,234.56)
+            last_dot = cleaned.rfind(".")
+            last_comma = cleaned.rfind(",")
+            if last_comma > last_dot:
+                # European format: 1.234,56 → period is thousands, comma is decimal
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            else:
+                # US/UK format: 1,234.56 → comma is thousands separator
+                cleaned = cleaned.replace(",", "")
 
         try:
             return float(cleaned)
@@ -357,7 +366,8 @@ class QualityMonitor:
             threshold=f"{threshold:.1%}",
         )
 
-        if failure_ratio > threshold:
+        # Use epsilon for floating point comparison to handle precision issues
+        if failure_ratio > threshold + 1e-9:
             log.critical(
                 "WATCHDOG ALERT: Failure threshold exceeded",
                 failure_ratio=f"{failure_ratio:.1%}",

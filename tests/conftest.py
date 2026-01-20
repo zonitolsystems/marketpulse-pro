@@ -11,6 +11,8 @@ Design Rationale:
     GlobalConfig to prevent state leakage between tests.
 """
 
+import gc
+import sys
 from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import MagicMock
@@ -19,6 +21,26 @@ import pytest
 from pytest_mock import MockerFixture
 
 from config.settings import GlobalConfig
+
+
+@pytest.fixture(autouse=True)
+def cleanup_main_module() -> None:
+    """Clean up main module after each test to prevent coroutine warnings.
+    
+    This prevents RuntimeWarning about unawaited coroutines that can occur
+    when the main module is imported in tests and garbage collected later.
+    """
+    yield
+    
+    # Force garbage collection before cleaning up
+    gc.collect()
+    
+    # Remove main module from cache if imported during test
+    if "main" in sys.modules:
+        del sys.modules["main"]
+    
+    # Force another garbage collection to clean up any remaining references
+    gc.collect()
 
 
 @pytest.fixture
@@ -53,7 +75,7 @@ def mock_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> GlobalConfig
     # Override environment variables for test isolation
     test_env = {
         "APP_NAME": "MarketPulse-Test",
-        "ENVIRONMENT": "test",
+        "ENVIRONMENT": "development",  # Must be valid: development|staging|production
         "DEBUG": "false",
         "HEADLESS": "true",
         "LOG_LEVEL": "DEBUG",

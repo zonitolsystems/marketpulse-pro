@@ -25,6 +25,28 @@ from config.settings import GlobalConfig
 from src.exceptions import LayoutShiftError
 
 
+def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
+    """Create properly configured Playwright mock chain for async_playwright().start() pattern."""
+    context_mock = MagicMock()
+    context_mock.add_init_script = AsyncMock()
+    context_mock.storage_state = AsyncMock(return_value={"cookies": [], "origins": []})
+    context_mock.new_page = AsyncMock()
+    context_mock.close = AsyncMock()
+    
+    browser_mock = MagicMock()
+    browser_mock.new_context = AsyncMock(return_value=context_mock)
+    browser_mock.close = AsyncMock()
+    
+    playwright_mock = MagicMock()
+    playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
+    playwright_mock.stop = AsyncMock()
+    
+    async_playwright_instance = MagicMock()
+    async_playwright_instance.start = AsyncMock(return_value=playwright_mock)
+    
+    return async_playwright_instance, playwright_mock, browser_mock, context_mock
+
+
 class TestPipelineOrchestration:
     """Test suite for main.py pipeline flow."""
 
@@ -34,7 +56,6 @@ class TestPipelineOrchestration:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Verify complete pipeline executes successfully with valid data.
@@ -47,11 +68,9 @@ class TestPipelineOrchestration:
         5. Reports generate
         6. Resources cleanup
         """
-        # Mock Playwright
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        # Mock Playwright with proper pattern
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         # Mock successful extraction
         mock_result = MagicMock()
@@ -67,16 +86,16 @@ class TestPipelineOrchestration:
         mock_result.pages_scraped = 1
         mock_result.success_rate = 1.0
 
-        # Mock scraper
-        mock_scraper_class = mocker.patch("main.BookScraper")
+        # Mock scraper (patch where it's imported in _run_pipeline)
+        mock_scraper_class = mocker.patch("src.scraper.BookScraper")
         mock_scraper_instance = mock_scraper_class.return_value
         mock_scraper_instance.extract = AsyncMock(return_value=mock_result)
         mock_scraper_instance.get_quality_summary = MagicMock(
             return_value={"total_attempts": 1, "total_successes": 1}
         )
 
-        # Mock reporter
-        mock_reporter_class = mocker.patch("main.ReportGenerator")
+        # Mock reporter (patch where it's imported in _run_pipeline)
+        mock_reporter_class = mocker.patch("src.reporter.ReportGenerator")
         mock_reporter_instance = mock_reporter_class.return_value
         mock_reporter_instance.generate_all = MagicMock(
             return_value={
@@ -103,16 +122,13 @@ class TestPipelineOrchestration:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
     ) -> None:
         """Verify pipeline propagates LayoutShiftError without catching."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
-        # Mock scraper that raises LayoutShiftError
-        mock_scraper_class = mocker.patch("main.BookScraper")
+        # Mock scraper that raises LayoutShiftError (patch where it's imported)
+        mock_scraper_class = mocker.patch("src.scraper.BookScraper")
         mock_scraper_instance = mock_scraper_class.return_value
         mock_scraper_instance.extract = AsyncMock(
             side_effect=LayoutShiftError(
@@ -135,11 +151,13 @@ class TestPipelineOrchestration:
         mock_config: GlobalConfig,
     ) -> None:
         """Verify Ctrl+C (SIGINT) causes graceful shutdown with exit code 130."""
-        # Mock asyncio.run to raise KeyboardInterrupt
-        mocker.patch(
-            "main.asyncio.run",
-            side_effect=KeyboardInterrupt(),
-        )
+        # Mock asyncio.run to properly close the coroutine before raising
+        def mock_asyncio_run(coro):
+            """Close the coroutine to prevent 'never awaited' warning."""
+            coro.close()
+            raise KeyboardInterrupt()
+
+        mocker.patch("main.asyncio.run", side_effect=mock_asyncio_run)
 
         # Mock config loading
         mocker.patch("main.get_config", return_value=mock_config)
@@ -278,35 +296,32 @@ class TestConfigurationValidationOnStartup:
 class TestReportGeneration:
     """Test suite for report output."""
 
-    def test_reports_not_generated_when_no_items(
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_reports_not_generated_when_no_items(
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
     ) -> None:
         """Verify report generation is skipped if extraction yields zero items."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         # Mock empty extraction result
         mock_result = MagicMock()
         mock_result.items = []  # Empty list
         mock_result.pages_scraped = 1
 
-        mock_scraper_class = mocker.patch("main.BookScraper")
+        mock_scraper_class = mocker.patch("src.scraper.BookScraper")
         mock_scraper_instance = mock_scraper_class.return_value
         mock_scraper_instance.extract = AsyncMock(return_value=mock_result)
 
         # Mock reporter (should not be called)
-        mock_reporter_class = mocker.patch("main.ReportGenerator")
-        mock_reporter_instance = mock_reporter_class.return_value
+        mock_reporter_class = mocker.patch("src.reporter.ReportGenerator")
 
         from main import _run_pipeline
-        import asyncio
 
-        exit_code = asyncio.run(_run_pipeline(mock_config))
+        exit_code = await _run_pipeline(mock_config)
 
         # Reporter should not be instantiated for empty results
         mock_reporter_class.assert_not_called()

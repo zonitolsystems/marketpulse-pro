@@ -27,6 +27,36 @@ from src.exceptions import (
 )
 
 
+def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
+    """Create properly configured Playwright mock chain for async_playwright().start() pattern.
+    
+    Returns:
+        Tuple of (async_playwright_instance, playwright_mock, browser_mock, context_mock)
+    """
+    # Context mock
+    context_mock = MagicMock()
+    context_mock.add_init_script = AsyncMock()
+    context_mock.storage_state = AsyncMock(return_value={"cookies": [], "origins": []})
+    context_mock.new_page = AsyncMock()
+    context_mock.close = AsyncMock()
+    
+    # Browser mock
+    browser_mock = MagicMock()
+    browser_mock.new_context = AsyncMock(return_value=context_mock)
+    browser_mock.close = AsyncMock()
+    
+    # Playwright mock
+    playwright_mock = MagicMock()
+    playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
+    playwright_mock.stop = AsyncMock()
+    
+    # async_playwright() returns instance with .start() method
+    async_playwright_instance = MagicMock()
+    async_playwright_instance.start = AsyncMock(return_value=playwright_mock)
+    
+    return async_playwright_instance, playwright_mock, browser_mock, context_mock
+
+
 class TestBrowserManagerInitialization:
     """Test suite for browser initialization."""
 
@@ -35,19 +65,16 @@ class TestBrowserManagerInitialization:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
     ) -> None:
         """Verify browser launches with anti-detection flags."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:
             # Verify chromium.launch was called
-            mock_playwright.chromium.launch.assert_called_once()
+            pw_mock.chromium.launch.assert_called_once()
 
-            call_args = mock_playwright.chromium.launch.call_args
+            call_args = pw_mock.chromium.launch.call_args
             assert call_args.kwargs["headless"] == mock_config.headless
 
             # Verify anti-detection arguments
@@ -60,21 +87,17 @@ class TestBrowserManagerInitialization:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
-        mock_browser_context: MagicMock,
     ) -> None:
         """Verify stealth JavaScript is injected into browser context."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:
             # Verify add_init_script was called
-            mock_browser_context.add_init_script.assert_called_once()
+            context_mock.add_init_script.assert_called_once()
 
             # Verify script content masks navigator.webdriver
-            script_arg = mock_browser_context.add_init_script.call_args[0][0]
+            script_arg = context_mock.add_init_script.call_args[0][0]
             assert "navigator" in script_arg
             assert "webdriver" in script_arg
 
@@ -83,14 +106,11 @@ class TestBrowserManagerInitialization:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Verify headless setting is passed from config."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         # Test headless=False
         from config.settings import get_config
@@ -100,7 +120,7 @@ class TestBrowserManagerInitialization:
         config_visible = get_config()
 
         async with BrowserManager.create(config_visible) as manager:
-            call_kwargs = mock_playwright.chromium.launch.call_args.kwargs
+            call_kwargs = pw_mock.chromium.launch.call_args.kwargs
             assert call_kwargs["headless"] is False
 
         get_config.cache_clear()
@@ -110,17 +130,13 @@ class TestBrowserManagerInitialization:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
     ) -> None:
         """Verify Playwright exceptions are wrapped in BrowserInitializationError."""
-        mock_playwright.chromium.launch.side_effect = RuntimeError(
-            "Browser binary not found"
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        pw_mock.chromium.launch = AsyncMock(
+            side_effect=RuntimeError("Browser binary not found")
         )
-
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         with pytest.raises(BrowserInitializationError) as exc_info:
             async with BrowserManager.create(mock_config) as manager:
@@ -137,18 +153,15 @@ class TestBrowserStateManagement:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
-        mock_browser_context: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Verify save_state writes storage_state.json."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
-
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        
         test_state = {"cookies": [{"name": "test", "value": "123"}], "origins": []}
-        mock_browser_context.storage_state.return_value = test_state
+        context_mock.storage_state = AsyncMock(return_value=test_state)
+        
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:
             saved_path = await manager.save_state()
@@ -163,8 +176,6 @@ class TestBrowserStateManagement:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
-        mock_browser_context: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Verify existing session state is loaded on initialization."""
@@ -173,14 +184,12 @@ class TestBrowserStateManagement:
         state_data = {"cookies": [{"name": "existing", "value": "abc"}], "origins": []}
         state_file.write_text(json.dumps(state_data))
 
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:
             # Verify new_context was called with storage_state
-            call_kwargs = mock_playwright.chromium.launch.return_value.new_context.call_args.kwargs
+            call_kwargs = browser_mock.new_context.call_args.kwargs
             assert "storage_state" in call_kwargs
             assert call_kwargs["storage_state"] == state_data
 
@@ -189,7 +198,6 @@ class TestBrowserStateManagement:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Verify corrupted state file doesn't crash initialization."""
@@ -197,10 +205,8 @@ class TestBrowserStateManagement:
         state_file = mock_config.storage_state_path
         state_file.write_text("{ invalid json }")
 
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         # Should not crash - just start fresh session
         async with BrowserManager.create(mock_config) as manager:
@@ -291,46 +297,37 @@ class TestBrowserCleanup:
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
-        mock_browser_context: MagicMock,
     ) -> None:
         """Verify cleanup closes context, browser, playwright in reverse order."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:
             pass  # Just test cleanup on exit
 
         # Verify cleanup order
-        mock_browser_context.close.assert_called_once()
-        mock_playwright.chromium.launch.return_value.close.assert_called_once()
-        mock_playwright.stop.assert_called_once()
+        context_mock.close.assert_called_once()
+        browser_mock.close.assert_called_once()
+        pw_mock.stop.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_cleanup_handles_exceptions_gracefully(
         self,
         mock_config: GlobalConfig,
         mocker: MockerFixture,
-        mock_playwright: MagicMock,
-        mock_browser_context: MagicMock,
     ) -> None:
         """Verify cleanup continues even if close() raises exceptions."""
-        mocker.patch(
-            "src.browser.async_playwright",
-            return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_playwright)),
-        )
-
+        async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
         # Simulate close() failure
-        mock_browser_context.close.side_effect = RuntimeError("Close failed")
+        context_mock.close = AsyncMock(side_effect=RuntimeError("Close failed"))
+        mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         # Should not raise - just log warning
         async with BrowserManager.create(mock_config) as manager:
             pass
 
         # Other cleanup should still execute
-        mock_playwright.stop.assert_called_once()
+        pw_mock.stop.assert_called_once()
 
 
 class TestUserAgentRotation:

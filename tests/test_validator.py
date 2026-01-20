@@ -11,7 +11,7 @@ Testing Philosophy:
 """
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given, settings, strategies as st, HealthCheck
 from pydantic import HttpUrl, ValidationError
 
 from config.settings import GlobalConfig
@@ -185,13 +185,9 @@ class TestProductSchemaTitleValidation:
         )
         assert product.title == "Test Book Title"
 
-    @given(title=st.text(min_size=1, max_size=500))
+    @given(title=st.text(min_size=1, max_size=500).filter(lambda t: t.strip()))
     def test_title_length_constraint(self, title: str) -> None:
         """Property: Titles within length constraint always validate."""
-        # Strip to avoid whitespace-only edge case
-        if not title.strip():
-            pytest.skip("Whitespace-only title")
-
         try:
             ProductSchema(
                 title=title,
@@ -354,6 +350,7 @@ class TestQualityMonitorThresholdLogic:
 class TestQualityMonitorInvariantProperties:
     """Test suite for state invariants."""
 
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(
         successes=st.integers(min_value=0, max_value=100),
         failures=st.integers(min_value=0, max_value=100),

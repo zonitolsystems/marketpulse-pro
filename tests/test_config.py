@@ -125,7 +125,7 @@ class TestGlobalConfigValidation:
         monkeypatch.setenv("BASE_URL", "https://example.com/")
         config = get_config()
         assert config.base_url.endswith("/")
-        assert config.base_url.count("/") == 4  # https:// + trailing /
+        assert config.base_url.count("/") == 3  # https:// (2) + trailing / (1)
 
         get_config.cache_clear()
 
