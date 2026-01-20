@@ -308,7 +308,7 @@ python -m playwright install chromium
 
 ### Running Tests
 
-**Using Make**
+**Option 1: Using Make**
 ```bash
 # Run all tests
 make test
@@ -317,13 +317,22 @@ make test
 make test-cov
 ```
 
-**Manual Commands**
+**Option 2: Manual Commands (Advanced)**
 ```bash
 # Run all tests
 python -m pytest tests -v
 
 # Run with coverage report
 python -m pytest tests --cov=src --cov-report=html --cov-report=term-missing
+
+# Run only unit tests (skip integration)
+python -m pytest tests -v -m "not integration"
+
+# Run with hypothesis statistics (for property-based tests)
+python -m pytest tests -v --hypothesis-show-statistics
+
+# Run with reproducible random seed
+python -m pytest tests -v --randomly-seed=42
 ```
 
 ### Code Quality
