@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Internet :: WWW/HTTP :: Indexing/Web Spider",
     "Typing :: Typed",
 ]
 
@@ -100,3 +99,6 @@ exclude_lines = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
