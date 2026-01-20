@@ -14,10 +14,14 @@ Design Rationale:
 """
 
 import sys
+from datetime import UTC
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from loguru import Logger
 
 from config.settings import GlobalConfig, get_config
 from src.exceptions import LoggingInitializationError
@@ -36,10 +40,10 @@ def _json_serializer(record: dict[str, Any]) -> str:
         JSON-formatted string representation of the log record.
     """
     import json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     subset = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "level": record["level"].name,
         "message": record["message"],
         "module": record["name"],
@@ -161,7 +165,7 @@ def configure_logging(config: GlobalConfig | None = None) -> None:
     )
 
 
-def get_logger(name: str) -> "logger":
+def get_logger(name: str) -> "Logger":
     """Get a contextualized logger instance.
 
     Creates a logger bound with the module name for consistent

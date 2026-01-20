@@ -10,7 +10,7 @@ Design Rationale:
     - Support the "fail-fast" philosophy - errors should surface immediately
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -29,7 +29,7 @@ class MarketPulseError(Exception):
     def __init__(self, message: str, context: dict[str, Any] | None = None) -> None:
         self.message = message
         self.context = context or {}
-        self.timestamp = datetime.now(timezone.utc)
+        self.timestamp = datetime.now(UTC)
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
@@ -124,9 +124,7 @@ class LayoutShiftError(MarketPulseError):
         batch_size: Number of items in the evaluated batch.
     """
 
-    def __init__(
-        self, failure_ratio: float, threshold: float, batch_size: int, url: str
-    ) -> None:
+    def __init__(self, failure_ratio: float, threshold: float, batch_size: int, url: str) -> None:
         super().__init__(
             message=(
                 f"CRITICAL: Layout shift detected. "

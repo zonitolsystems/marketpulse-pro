@@ -11,8 +11,8 @@ Testing Philosophy:
     Use the factory pattern to inject boundary conditions without duplication.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Callable
+from collections.abc import Callable
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -21,40 +21,42 @@ from config.settings import GlobalConfig
 from src.browser import BrowserManager
 from src.exceptions import LayoutShiftError
 from src.scraper import BookScraper
-from src.validator import ProductSchema, QualityMonitor
-from src.extractor import ExtractionResult
 
 
-def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
+def create_playwright_mock(
+    mocker: MockerFixture,
+) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
     """Create properly configured Playwright mock chain for async_playwright().start() pattern."""
     context_mock = MagicMock()
     context_mock.add_init_script = AsyncMock()
     context_mock.storage_state = AsyncMock(return_value={"cookies": [], "origins": []})
     context_mock.new_page = AsyncMock()
     context_mock.close = AsyncMock()
-    
+
     browser_mock = MagicMock()
     browser_mock.new_context = AsyncMock(return_value=context_mock)
     browser_mock.close = AsyncMock()
-    
+
     playwright_mock = MagicMock()
     playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
     playwright_mock.stop = AsyncMock()
-    
+
     async_playwright_instance = MagicMock()
     async_playwright_instance.start = AsyncMock(return_value=playwright_mock)
-    
+
     return async_playwright_instance, playwright_mock, browser_mock, context_mock
 
 
-def create_mock_page(mocker: MockerFixture, elements: list[MagicMock], has_next: bool = False) -> MagicMock:
+def create_mock_page(
+    mocker: MockerFixture, elements: list[MagicMock], has_next: bool = False
+) -> MagicMock:
     """Create a properly configured mock page.
-    
+
     Args:
         mocker: pytest-mock fixture
         elements: List of mock product elements
         has_next: Whether a next page link exists
-    
+
     Returns:
         Configured MagicMock for a Playwright Page
     """
@@ -63,11 +65,11 @@ def create_mock_page(mocker: MockerFixture, elements: list[MagicMock], has_next:
     mock_page.wait_for_selector = AsyncMock()
     mock_page.goto = AsyncMock(return_value=MagicMock(status=200))
     mock_page.close = AsyncMock()
-    
+
     # Container locator for product elements
     container_locator = MagicMock()
     container_locator.all = AsyncMock(return_value=elements)
-    
+
     # Next page locator
     next_locator = MagicMock()
     if has_next:
@@ -76,7 +78,7 @@ def create_mock_page(mocker: MockerFixture, elements: list[MagicMock], has_next:
     else:
         next_locator.count = AsyncMock(return_value=0)
         next_locator.get_attribute = AsyncMock(return_value=None)
-    
+
     def locator_side_effect(selector: str) -> MagicMock:
         if "product_pod" in selector:
             return container_locator
@@ -86,7 +88,7 @@ def create_mock_page(mocker: MockerFixture, elements: list[MagicMock], has_next:
         default_loc = MagicMock()
         default_loc.count = AsyncMock(return_value=1)
         return default_loc
-    
+
     mock_page.locator = locator_side_effect
     return mock_page
 
@@ -94,20 +96,24 @@ def create_mock_page(mocker: MockerFixture, elements: list[MagicMock], has_next:
 def create_valid_product_element(mocker: MockerFixture, index: int) -> MagicMock:
     """Create a mock product element that returns valid data."""
     element = MagicMock()
-    
+
     title = f"Test Book {index}"
     price = f"£{10.0 + index:.2f}"
     stock = "In stock (20 available)"
     rating = "star-rating Three"
     relative_url = f"catalogue/book_{index}.html"
-    
+
     def locator_side_effect(selector: str) -> MagicMock:
         loc = MagicMock()
-        
+
         # Title selector: "h3 > a"
         if "h3" in selector:
             loc.get_attribute = AsyncMock(
-                side_effect=lambda attr: title if attr == "title" else relative_url if attr == "href" else None
+                side_effect=lambda attr: title
+                if attr == "title"
+                else relative_url
+                if attr == "href"
+                else None
             )
             loc.inner_text = AsyncMock(return_value=title)
             return loc
@@ -126,12 +132,12 @@ def create_valid_product_element(mocker: MockerFixture, index: int) -> MagicMock
             loc.get_attribute = AsyncMock(return_value=rating)
             loc.inner_text = AsyncMock(return_value="")
             return loc
-        
+
         # Default
         loc.inner_text = AsyncMock(return_value="")
         loc.get_attribute = AsyncMock(return_value=None)
         return loc
-    
+
     element.locator = locator_side_effect
     return element
 
@@ -139,14 +145,14 @@ def create_valid_product_element(mocker: MockerFixture, index: int) -> MagicMock
 def create_invalid_product_element(mocker: MockerFixture, index: int) -> MagicMock:
     """Create a mock product element that returns invalid data."""
     element = MagicMock()
-    
+
     def locator_side_effect(selector: str) -> MagicMock:
         loc = MagicMock()
         # Return empty/invalid data for all fields
         loc.inner_text = AsyncMock(return_value="")
         loc.get_attribute = AsyncMock(return_value=None)
         return loc
-    
+
     element.locator = locator_side_effect
     return element
 
@@ -206,7 +212,9 @@ class TestBookScraperExtractionScenarios:
 
         # Create 10 items: 7 valid, 3 invalid (30% failure exactly at threshold)
         elements = [
-            create_valid_product_element(mocker, i) if i < 7 else create_invalid_product_element(mocker, i)
+            create_valid_product_element(mocker, i)
+            if i < 7
+            else create_invalid_product_element(mocker, i)
             for i in range(10)
         ]
         mock_page = create_mock_page(mocker, elements, has_next=False)

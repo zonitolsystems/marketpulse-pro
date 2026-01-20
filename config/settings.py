@@ -85,9 +85,7 @@ class GlobalConfig(BaseSettings):
     request_timeout_ms: int = Field(
         default=30000, ge=5000, le=120000, description="Request timeout in milliseconds"
     )
-    retry_max_attempts: int = Field(
-        default=3, ge=1, le=10, description="Maximum retry attempts"
-    )
+    retry_max_attempts: int = Field(default=3, ge=1, le=10, description="Maximum retry attempts")
     retry_base_delay_sec: float = Field(
         default=1.0, ge=0.1, le=10.0, description="Base delay for exponential backoff"
     )
@@ -126,18 +124,12 @@ class GlobalConfig(BaseSettings):
     )
 
     # CSS Selectors (Target: books.toscrape.com)
-    css_selector_title: str = Field(
-        default="h3 > a", description="Product title selector"
-    )
-    css_selector_price: str = Field(
-        default=".price_color", description="Price selector"
-    )
+    css_selector_title: str = Field(default="h3 > a", description="Product title selector")
+    css_selector_price: str = Field(default=".price_color", description="Price selector")
     css_selector_stock: str = Field(
         default=".instock.availability", description="Stock availability selector"
     )
-    css_selector_rating: str = Field(
-        default=".star-rating", description="Rating selector"
-    )
+    css_selector_rating: str = Field(default=".star-rating", description="Rating selector")
     css_selector_next_page: str = Field(
         default=".next > a", description="Pagination next button selector"
     )

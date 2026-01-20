@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from config.settings import GlobalConfig, get_config
+from config.settings import GlobalConfig
 
 
 class TestGlobalConfigValidation:
@@ -34,9 +34,7 @@ class TestGlobalConfigValidation:
         assert mock_config.request_timeout_ms >= 1000
         assert 0.0 <= mock_config.watchdog_failure_threshold <= 1.0
 
-    def test_pagination_limit_validation(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_pagination_limit_validation(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify pagination_limit accepts 0 (unlimited) and positive integers."""
         from config.settings import get_config
 
@@ -56,9 +54,7 @@ class TestGlobalConfigValidation:
 
         get_config.cache_clear()
 
-    def test_concurrent_requests_bounds(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_concurrent_requests_bounds(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify max_concurrent_requests enforces sensible bounds (1-20)."""
         from config.settings import get_config
 
@@ -69,7 +65,9 @@ class TestGlobalConfigValidation:
         with pytest.raises(ValidationError) as exc_info:
             get_config()
 
-        assert "MAX_CONCURRENT_REQUESTS" in str(exc_info.value).upper() or "max_concurrent_requests" in str(exc_info.value)
+        assert "MAX_CONCURRENT_REQUESTS" in str(
+            exc_info.value
+        ).upper() or "max_concurrent_requests" in str(exc_info.value)
 
         get_config.cache_clear()
 
@@ -80,9 +78,7 @@ class TestGlobalConfigValidation:
 
         get_config.cache_clear()
 
-    def test_watchdog_threshold_range(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_watchdog_threshold_range(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify watchdog_failure_threshold is a valid ratio (0.0-1.0)."""
         from config.settings import get_config
 
@@ -108,9 +104,7 @@ class TestGlobalConfigValidation:
         assert isinstance(mock_config.output_dir, Path)
         assert isinstance(mock_config.storage_state_path, Path)
 
-    def test_base_url_trailing_slash_normalization(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_base_url_trailing_slash_normalization(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify base_url always ends with trailing slash for URL joining."""
         from config.settings import get_config
 
@@ -133,9 +127,7 @@ class TestGlobalConfigValidation:
 class TestConfigSingletonBehavior:
     """Test suite for get_config() singleton caching."""
 
-    def test_singleton_returns_same_instance(
-        self, mock_config: GlobalConfig
-    ) -> None:
+    def test_singleton_returns_same_instance(self, mock_config: GlobalConfig) -> None:
         """Verify get_config() returns cached instance within same scope."""
         from config.settings import get_config
 
@@ -169,9 +161,7 @@ class TestConfigSingletonBehavior:
 class TestEnvironmentVariableOverrides:
     """Test suite for environment variable precedence."""
 
-    def test_env_var_overrides_default(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_var_overrides_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify environment variables override default values."""
         from config.settings import get_config
 
@@ -185,9 +175,7 @@ class TestEnvironmentVariableOverrides:
 
         get_config.cache_clear()
 
-    def test_boolean_env_var_parsing(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_boolean_env_var_parsing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Verify boolean environment variables are parsed correctly.
 
         Pydantic accepts: true/false, 1/0, yes/no, on/off (case-insensitive).

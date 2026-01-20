@@ -11,8 +11,9 @@ Testing Philosophy:
 """
 
 import pytest
-from hypothesis import given, settings, strategies as st, HealthCheck
-from pydantic import HttpUrl, ValidationError
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+from pydantic import ValidationError
 
 from config.settings import GlobalConfig
 from src.exceptions import LayoutShiftError
@@ -213,9 +214,7 @@ class TestQualityMonitorBasicOperations:
         assert monitor._total_attempts == 0
         assert monitor._total_successes == 0
 
-    def test_record_success_increments_counters(
-        self, mock_config: GlobalConfig
-    ) -> None:
+    def test_record_success_increments_counters(self, mock_config: GlobalConfig) -> None:
         """Verify record_success updates both batch and total counters."""
         monitor = QualityMonitor(mock_config)
         monitor.start_batch("https://example.com")
@@ -227,9 +226,7 @@ class TestQualityMonitorBasicOperations:
         assert monitor._total_attempts == 1
         assert monitor._total_successes == 1
 
-    def test_record_failure_increments_attempts_only(
-        self, mock_config: GlobalConfig
-    ) -> None:
+    def test_record_failure_increments_attempts_only(self, mock_config: GlobalConfig) -> None:
         """Verify record_failure increments attempts but not successes."""
         monitor = QualityMonitor(mock_config)
         monitor.start_batch("https://example.com")
@@ -241,9 +238,7 @@ class TestQualityMonitorBasicOperations:
         assert monitor._total_attempts == 1
         assert monitor._total_successes == 0
 
-    def test_start_batch_resets_batch_counters(
-        self, mock_config: GlobalConfig
-    ) -> None:
+    def test_start_batch_resets_batch_counters(self, mock_config: GlobalConfig) -> None:
         """Verify start_batch clears batch counters but preserves totals."""
         monitor = QualityMonitor(mock_config)
         monitor.start_batch("https://example.com/page1")
@@ -332,9 +327,7 @@ class TestQualityMonitorThresholdLogic:
         with pytest.raises(LayoutShiftError):
             monitor.evaluate_batch()
 
-    def test_empty_batch_logs_warning_no_error(
-        self, mock_config: GlobalConfig
-    ) -> None:
+    def test_empty_batch_logs_warning_no_error(self, mock_config: GlobalConfig) -> None:
         """Verify empty batch (0 attempts) doesn't crash.
 
         This can happen if selectors fail before any item extraction.

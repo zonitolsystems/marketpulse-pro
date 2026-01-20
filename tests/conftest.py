@@ -13,8 +13,9 @@ Design Rationale:
 
 import gc
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,19 +27,19 @@ from config.settings import GlobalConfig
 @pytest.fixture(autouse=True)
 def cleanup_main_module() -> None:
     """Clean up main module after each test to prevent coroutine warnings.
-    
+
     This prevents RuntimeWarning about unawaited coroutines that can occur
     when the main module is imported in tests and garbage collected later.
     """
     yield
-    
+
     # Force garbage collection before cleaning up
     gc.collect()
-    
+
     # Remove main module from cache if imported during test
     if "main" in sys.modules:
         del sys.modules["main"]
-    
+
     # Force another garbage collection to clean up any remaining references
     gc.collect()
 
@@ -154,14 +155,8 @@ def mock_html_factory() -> Callable[[int, dict[str, Any]], str]:
                 if title is not None
                 else "<h3></h3>"
             )
-            price_html = (
-                f'<p class="price_color">{price}</p>' if price is not None else ""
-            )
-            stock_html = (
-                f'<p class="instock availability">{stock}</p>'
-                if stock is not None
-                else ""
-            )
+            price_html = f'<p class="price_color">{price}</p>' if price is not None else ""
+            stock_html = f'<p class="instock availability">{stock}</p>' if stock is not None else ""
             rating_html = (
                 f'<p class="star-rating {rating}"></p>'
                 if rating is not None
@@ -235,9 +230,7 @@ def mock_page(mocker: MockerFixture, mock_html_factory: Callable) -> MagicMock:
 
 
 @pytest.fixture
-def mock_browser_context(
-    mocker: MockerFixture, tmp_path: Path
-) -> MagicMock:
+def mock_browser_context(mocker: MockerFixture, tmp_path: Path) -> MagicMock:
     """Provide mocked Playwright BrowserContext.
 
     Args:
@@ -248,9 +241,7 @@ def mock_browser_context(
         Configured MagicMock for BrowserContext.
     """
     context = mocker.MagicMock()
-    context.storage_state = mocker.AsyncMock(
-        return_value={"cookies": [], "origins": []}
-    )
+    context.storage_state = mocker.AsyncMock(return_value={"cookies": [], "origins": []})
     context.new_page = mocker.AsyncMock()
     context.close = mocker.AsyncMock()
     context.add_init_script = mocker.AsyncMock()

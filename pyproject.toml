@@ -54,6 +54,8 @@ marketpulse = "main:main"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.ruff.lint]
 select = [
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
@@ -68,9 +70,20 @@ select = [
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
+    "UP046",  # Generic[T] syntax still preferred for Pydantic BaseModel compatibility
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.per-file-ignores]
+# Tests use fixtures via dependency injection (unused args), redefinitions for fresh imports,
+# and assert statements as standard practice
+"tests/*" = [
+    "ARG001",  # Unused function argument (fixtures, mocker)
+    "ARG002",  # Unused method argument (fixtures, mocker)
+    "F811",    # Redefinition of unused name (reimporting get_config for cache isolation)
+    "F841",    # Local variable assigned but never used (async with manager pattern)
+]
+
+[tool.ruff.lint.isort]
 known-first-party = ["src", "config"]
 
 [tool.mypy]
@@ -80,6 +93,15 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pandas",
+    "pandas.*",
+    "plotly",
+    "plotly.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -15,12 +15,11 @@ Design Rationale:
     stakeholders to explore data without installing Python or BI tools.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -57,7 +56,7 @@ class ReportGenerator:
             config: Optional GlobalConfig. Uses singleton if not provided.
         """
         self.config = config or get_config()
-        self._timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self._timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
     def _ensure_output_dir(self) -> Path:
         """Ensure output directory exists and return path.
@@ -179,7 +178,7 @@ class ReportGenerator:
             Dictionary of summary statistics.
         """
         return {
-            "Report Generated": datetime.now(timezone.utc).isoformat(),
+            "Report Generated": datetime.now(UTC).isoformat(),
             "Source URL": result.source_url,
             "Total Items": len(result.items),
             "Pages Scraped": result.pages_scraped,
@@ -310,11 +309,7 @@ class ReportGenerator:
                     marker_color="#9b59b6",
                     text=top_rated["rating"],
                     textposition="auto",
-                    hovertemplate=(
-                        "<b>%{y}</b><br>"
-                        "Rating: %{x} stars<br>"
-                        f"<extra></extra>"
-                    ),
+                    hovertemplate=("<b>%{y}</b><br>Rating: %{x} stars<br><extra></extra>"),
                 ),
                 row=2,
                 col=1,
@@ -344,7 +339,7 @@ class ReportGenerator:
                         f"<sup>Source: {result.source_url} | "
                         f"Items: {len(result.items)} | "
                         f"Pages: {result.pages_scraped} | "
-                        f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</sup>"
+                        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}</sup>"
                     ),
                     "x": 0.5,
                     "xanchor": "center",
@@ -352,7 +347,7 @@ class ReportGenerator:
                 showlegend=False,
                 height=800,
                 template="plotly_white",
-                font=dict(family="Arial, sans-serif"),
+                font={"family": "Arial, sans-serif"},
             )
 
             # Update axes labels

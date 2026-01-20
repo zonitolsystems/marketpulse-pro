@@ -13,7 +13,7 @@ Testing Philosophy:
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -23,13 +23,14 @@ from src.browser import BrowserManager
 from src.exceptions import (
     BrowserInitializationError,
     NavigationError,
-    SessionExpiredError,
 )
 
 
-def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
+def create_playwright_mock(
+    mocker: MockerFixture,
+) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
     """Create properly configured Playwright mock chain for async_playwright().start() pattern.
-    
+
     Returns:
         Tuple of (async_playwright_instance, playwright_mock, browser_mock, context_mock)
     """
@@ -39,21 +40,21 @@ def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock,
     context_mock.storage_state = AsyncMock(return_value={"cookies": [], "origins": []})
     context_mock.new_page = AsyncMock()
     context_mock.close = AsyncMock()
-    
+
     # Browser mock
     browser_mock = MagicMock()
     browser_mock.new_context = AsyncMock(return_value=context_mock)
     browser_mock.close = AsyncMock()
-    
+
     # Playwright mock
     playwright_mock = MagicMock()
     playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
     playwright_mock.stop = AsyncMock()
-    
+
     # async_playwright() returns instance with .start() method
     async_playwright_instance = MagicMock()
     async_playwright_instance.start = AsyncMock(return_value=playwright_mock)
-    
+
     return async_playwright_instance, playwright_mock, browser_mock, context_mock
 
 
@@ -133,9 +134,7 @@ class TestBrowserManagerInitialization:
     ) -> None:
         """Verify Playwright exceptions are wrapped in BrowserInitializationError."""
         async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
-        pw_mock.chromium.launch = AsyncMock(
-            side_effect=RuntimeError("Browser binary not found")
-        )
+        pw_mock.chromium.launch = AsyncMock(side_effect=RuntimeError("Browser binary not found"))
         mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         with pytest.raises(BrowserInitializationError) as exc_info:
@@ -157,10 +156,10 @@ class TestBrowserStateManagement:
     ) -> None:
         """Verify save_state writes storage_state.json."""
         async_pw, pw_mock, browser_mock, context_mock = create_playwright_mock(mocker)
-        
+
         test_state = {"cookies": [{"name": "test", "value": "123"}], "origins": []}
         context_mock.storage_state = AsyncMock(return_value=test_state)
-        
+
         mocker.patch("src.browser.async_playwright", return_value=async_pw)
 
         async with BrowserManager.create(mock_config) as manager:

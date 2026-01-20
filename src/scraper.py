@@ -17,14 +17,14 @@ Design Rationale:
 """
 
 import asyncio
+from typing import Any
 from urllib.parse import urljoin
 
-from playwright.async_api import Page, Locator
+from playwright.async_api import Locator, Page
 from pydantic import ValidationError
 
-from config.settings import GlobalConfig, get_config
+from config.settings import GlobalConfig
 from src.browser import BrowserManager
-from src.exceptions import ExtractionError, SelectorNotFoundError
 from src.extractor import BaseExtractor
 from src.logger import get_logger
 from src.validator import ProductSchema, QualityMonitor
@@ -171,10 +171,7 @@ class BookScraper(BaseExtractor[ProductSchema]):
 
             # Extract relative URL and convert to absolute
             relative_url = await title_element.get_attribute("href")
-            if relative_url:
-                absolute_url = urljoin(page_url, relative_url)
-            else:
-                absolute_url = page_url
+            absolute_url = urljoin(page_url, relative_url) if relative_url else page_url
 
             # Extract price
             price_element = element.locator(self.config.css_selector_price)
@@ -188,8 +185,9 @@ class BookScraper(BaseExtractor[ProductSchema]):
             rating_element = element.locator(self.config.css_selector_rating)
             rating_classes = await rating_element.get_attribute("class")
 
-            # Construct raw data dictionary
-            raw_data = {
+            # Construct raw data dictionary for Pydantic validation
+            # Note: Pydantic validators will transform raw strings to typed values
+            raw_data: dict[str, Any] = {
                 "title": title,
                 "price": price_text,
                 "stock": stock_text,
@@ -262,7 +260,7 @@ class BookScraper(BaseExtractor[ProductSchema]):
             )
             return None
 
-    def get_quality_summary(self) -> dict:
+    def get_quality_summary(self) -> dict[str, Any]:
         """Get quality monitoring summary for reporting.
 
         Returns:

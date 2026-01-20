@@ -13,10 +13,9 @@ Testing Philosophy:
 """
 
 import json
-import signal
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -25,25 +24,27 @@ from config.settings import GlobalConfig
 from src.exceptions import LayoutShiftError
 
 
-def create_playwright_mock(mocker: MockerFixture) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
+def create_playwright_mock(
+    mocker: MockerFixture,
+) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock]:
     """Create properly configured Playwright mock chain for async_playwright().start() pattern."""
     context_mock = MagicMock()
     context_mock.add_init_script = AsyncMock()
     context_mock.storage_state = AsyncMock(return_value={"cookies": [], "origins": []})
     context_mock.new_page = AsyncMock()
     context_mock.close = AsyncMock()
-    
+
     browser_mock = MagicMock()
     browser_mock.new_context = AsyncMock(return_value=context_mock)
     browser_mock.close = AsyncMock()
-    
+
     playwright_mock = MagicMock()
     playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
     playwright_mock.stop = AsyncMock()
-    
+
     async_playwright_instance = MagicMock()
     async_playwright_instance.start = AsyncMock(return_value=playwright_mock)
-    
+
     return async_playwright_instance, playwright_mock, browser_mock, context_mock
 
 
@@ -151,6 +152,7 @@ class TestPipelineOrchestration:
         mock_config: GlobalConfig,
     ) -> None:
         """Verify Ctrl+C (SIGINT) causes graceful shutdown with exit code 130."""
+
         # Mock asyncio.run to properly close the coroutine before raising
         def mock_asyncio_run(coro):
             """Close the coroutine to prevent 'never awaited' warning."""

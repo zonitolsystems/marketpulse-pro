@@ -22,9 +22,10 @@ Anti-Bot Measures:
 import asyncio
 import json
 import random
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, Self
+from typing import Any, Literal, Self
 
 from playwright.async_api import (
     Browser,
@@ -41,6 +42,9 @@ from src.exceptions import (
     SessionExpiredError,
 )
 from src.logger import get_logger
+
+# Type alias for Playwright navigation wait conditions
+WaitUntilType = Literal["commit", "domcontentloaded", "load", "networkidle"]
 
 log = get_logger(__name__)
 
@@ -83,9 +87,7 @@ class BrowserManager:
 
     @classmethod
     @asynccontextmanager
-    async def create(
-        cls, config: GlobalConfig | None = None
-    ) -> AsyncGenerator[Self, None]:
+    async def create(cls, config: GlobalConfig | None = None) -> AsyncGenerator[Self, None]:
         """Factory method with async context manager for lifecycle management.
 
         Creates a fully initialized BrowserManager instance with browser
@@ -179,9 +181,7 @@ class BrowserManager:
 
         except Exception as exc:
             await self._cleanup()
-            raise BrowserInitializationError(
-                reason=str(exc), browser_type="chromium"
-            ) from exc
+            raise BrowserInitializationError(reason=str(exc), browser_type="chromium") from exc
 
     async def _create_stealth_context(self) -> None:
         """Create a browser context with stealth settings applied.
@@ -201,7 +201,7 @@ class BrowserManager:
         # Check for existing session state
         storage_state = await self._load_state()
 
-        context_options = {
+        context_options: dict[str, Any] = {
             "viewport": {"width": viewport_width, "height": viewport_height},
             "user_agent": self._current_user_agent,
             "locale": "en-US",
@@ -262,7 +262,7 @@ class BrowserManager:
         await self._context.add_init_script(stealth_js)
         log.debug("Stealth scripts injected")
 
-    async def _load_state(self) -> dict | None:
+    async def _load_state(self) -> dict[str, Any] | None:
         """Load browser session state from disk if valid.
 
         Returns:
@@ -279,7 +279,7 @@ class BrowserManager:
             return None
 
         try:
-            state_data = json.loads(state_path.read_text(encoding="utf-8"))
+            state_data: dict[str, Any] = json.loads(state_path.read_text(encoding="utf-8"))
 
             # Basic validation - ensure required keys exist
             if "cookies" not in state_data or "origins" not in state_data:
@@ -325,9 +325,7 @@ class BrowserManager:
 
         try:
             storage_state = await self._context.storage_state()
-            state_path.write_text(
-                json.dumps(storage_state, indent=2), encoding="utf-8"
-            )
+            state_path.write_text(json.dumps(storage_state, indent=2), encoding="utf-8")
             log.info("Session state saved", path=str(state_path))
             return state_path
 
@@ -366,7 +364,7 @@ class BrowserManager:
         self,
         page: Page,
         url: str,
-        wait_until: str = "domcontentloaded",
+        wait_until: WaitUntilType = "domcontentloaded",
     ) -> None:
         """Navigate to URL with error handling and human-like delay.
 
@@ -448,8 +446,10 @@ class BrowserManager:
     @property
     def is_initialized(self) -> bool:
         """Check if browser is fully initialized and ready."""
-        return all([
-            self._playwright is not None,
-            self._browser is not None,
-            self._context is not None,
-        ])
+        return all(
+            [
+                self._playwright is not None,
+                self._browser is not None,
+                self._context is not None,
+            ]
+        )
