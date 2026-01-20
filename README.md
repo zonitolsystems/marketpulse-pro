@@ -111,6 +111,7 @@ marketpulse-pro/
 
 ### Installation
 
+**Option 1: Using Make (Linux/Mac/WSL)**
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -118,9 +119,18 @@ cd marketpulse-pro
 
 # Install with development dependencies
 make setup
+```
 
-# Or manually:
+**Option 2: Manual Setup (Windows/No Make)**
+```bash
+# Clone the repository
+git clone <repository-url>
+cd marketpulse-pro
+
+# Install dependencies
 pip install -e ".[dev]"
+
+# Install Playwright browsers
 python -m playwright install chromium
 ```
 
@@ -136,11 +146,13 @@ cp .env.example .env      # Linux/Mac
 
 ### Execution
 
+**Option 1: Using Make**
 ```bash
-# Run the scraping pipeline
 make run
+```
 
-# Or directly:
+**Option 2: Manual Execution**
+```bash
 python main.py
 ```
 
@@ -296,16 +308,27 @@ python -m playwright install chromium
 
 ### Running Tests
 
+**Using Make**
 ```bash
 # Run all tests
 make test
 
-# Run with coverage
+# Run with coverage report
 make test-cov
+```
+
+**Manual Commands**
+```bash
+# Run all tests
+python -m pytest tests -v
+
+# Run with coverage report
+python -m pytest tests --cov=src --cov-report=html --cov-report=term-missing
 ```
 
 ### Code Quality
 
+**Using Make**
 ```bash
 # Lint check
 make lint
@@ -315,6 +338,19 @@ make format
 
 # Type check
 make typecheck
+```
+
+**Manual Commands**
+```bash
+# Lint check
+python -m ruff check src tests config main.py
+
+# Auto-format
+python -m ruff check --fix src tests config main.py
+python -m ruff format src tests config main.py
+
+# Type check
+python -m mypy src config main.py
 ```
 
 ---
